@@ -3,6 +3,10 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import json
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -13,41 +17,76 @@ LAST_ARTICLE_FILE = "last_article.txt"
 
 def get_latest_article():
     try:
-        response = requests.get(BASE_URL)
+        logger.info(f"Fetching articles from {BASE_URL}")
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(BASE_URL, headers=headers)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        article = soup.find('div', class_='article-item')
+        article = soup.find('div', class_='css-Nm7vm')
         if not article:
+            logger.warning("No articles found with class 'css-Nm7vm'")
             return None
             
-        title = article.find('h3').text.strip()
-        link = article.find('a')['href']
-        if not link.startswith('http'):
-            link = f"https://magic.wizards.com{link}"
+        title = article.find('h3')
+        if title:
+            title = title.text.strip()
+        else:
+            logger.warning("No title found in article")
+            return None
             
+        # Find the article with class css-415ug
+        article_content = article.find('article', class_='css-415ug')
+        if not article_content:
+            logger.warning("No article content found")
+            return None
+            
+        # Find the div with class css-3qxBv
+        content_div = article_content.find('div', class_='css-3qxBv')
+        if not content_div:
+            logger.warning("No content div found")
+            return None
+            
+        # Find the link with data-navigation-type="client-side"
+        link = content_div.find('a', attrs={'data-navigation-type': 'client-side'})
+        if link:
+            link = link['href']
+            if not link.startswith('http'):
+                link = f"https://magic.wizards.com{link}"
+        else:
+            logger.warning("No link found for article")
+            return None
+            
+        logger.info(f"Found article: {title}")
+        logger.info(f"Article URL: {link}")
         return {
             'title': title,
             'url': link
         }
     except Exception as e:
-        print(f"Error fetching articles: {e}")
+        logger.error(f"Error fetching articles: {e}")
         return None
 
 def load_last_article():
     try:
         with open(LAST_ARTICLE_FILE, 'r') as f:
-            return f.read().strip()
+            last_url = f.read().strip()
+            logger.info(f"Last article URL: {last_url}")
+            return last_url
     except FileNotFoundError:
+        logger.info("No last article file found")
         return None
 
 def save_last_article(url):
     with open(LAST_ARTICLE_FILE, 'w') as f:
         f.write(url)
+        logger.info(f"Saved new last article URL: {url}")
 
 def send_webhook(article):
     if not WEBHOOK_URL:
-        print("Error: Webhook URL not configured")
+        logger.error("Webhook URL not configured")
         return
         
     payload = {
@@ -62,19 +101,27 @@ def send_webhook(article):
     }
     
     try:
+        logger.info(f"Sending webhook for article: {article['title']}")
         response = requests.post(
             WEBHOOK_URL,
             json=payload,
             headers={'Content-Type': 'application/json'}
         )
         response.raise_for_status()
+        logger.info("Webhook sent successfully")
     except Exception as e:
-        print(f"Error sending webhook: {e}")
+        logger.error(f"Error sending webhook: {e}")
 
+logger.info("Starting MTG Article Bot check")
 last_article_url = load_last_article()
 latest_article = get_latest_article()
 
-if latest_article and latest_article['url'] != last_article_url:
-    print(f"New article found: {latest_article['title']}")
-    send_webhook(latest_article)
-    save_last_article(latest_article['url']) 
+if latest_article:
+    if latest_article['url'] != last_article_url:
+        logger.info("New article detected")
+        send_webhook(latest_article)
+        save_last_article(latest_article['url'])
+    else:
+        logger.info("No new articles found")
+else:
+    logger.warning("Could not fetch latest article") 
