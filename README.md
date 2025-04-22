@@ -23,13 +23,22 @@ pip install -r requirements.txt
 
 ## Usage
 
-Run the bot with:
+### Windows (Task Scheduler)
+1. Open Task Scheduler
+2. Create a new Basic Task
+3. Set the trigger to run every 5 minutes
+4. Set the action to "Start a program"
+5. Set the program to `python` and add arguments as the full path to your script
+6. Complete the wizard
+
+### Linux (Cron)
+Add this line to your crontab:
 ```bash
-python mtg_article_bot.py
+*/5 * * * * /usr/bin/python3 /path/to/mtg_article_bot.py
 ```
 
 The bot will:
-- Check for new articles every 5 minutes
+- Check for new articles when triggered
 - Send a notification to your Discord channel when a new article is found
 - Store the last seen article to avoid duplicate notifications
 
@@ -39,4 +48,4 @@ The bot will:
 - Sends formatted Discord embeds with article titles and links
 - Prevents duplicate notifications
 - Error handling and logging
-- Configurable check interval 
+- Cron job compatible 
