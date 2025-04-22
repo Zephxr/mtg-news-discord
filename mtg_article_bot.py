@@ -10,10 +10,9 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Configuration
 WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
 BASE_URL = "https://magic.wizards.com/en/news/archive"
-LAST_ARTICLE_FILE = "last_article.txt"
+LAST_ARTICLE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "last_article.txt")
 
 def get_latest_article():
     try:
@@ -37,19 +36,16 @@ def get_latest_article():
             logger.warning("No title found in article")
             return None
             
-        # Find the article with class css-415ug
         article_content = article.find('article', class_='css-415ug')
         if not article_content:
             logger.warning("No article content found")
             return None
             
-        # Find the div with class css-3qxBv
         content_div = article_content.find('div', class_='css-3qxBv')
         if not content_div:
             logger.warning("No content div found")
             return None
             
-        # Find the link with data-navigation-type="client-side"
         link = content_div.find('a', attrs={'data-navigation-type': 'client-side'})
         if link:
             link = link['href']
